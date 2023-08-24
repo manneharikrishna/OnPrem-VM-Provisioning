@@ -1,0 +1,355 @@
+---
+- name: VM Build Block
+  block:
+        - name: Create terraform workspace directory
+          file:
+            dest: "{{tf_build_dir}}"
+            state: directory
+ 
+        # - name: Import SSL certificates
+        #   set_fact:
+        #   env:
+        #     SSL_CERT_FILE: "http://20.115.26.80/pkg/combined.crt" 
+        #   delegate_to: localhost
+        # - name: Download bundle.pem file
+        #   get_url:
+        #     url: "http://20.115.26.80/pkg/ovf_images/combined.pem"
+        #     dest: "{{tf_build_dir}}/{{item}}"
+        #     mode: 0644
+        #   with_items:
+        #        - "combined.pem"
+        #   ignore_errors: True
+        - name: Create Directory for Certifications Storage
+          ansible.builtin.file:
+            path: "{{tf_build_dir}}/vmware/certs"
+            state: directory
+            mode: '0775'
+        - name: copy ssl cert template
+          template:
+            src: templates/vcenter_ssl.crt.j2
+            dest: "{{tf_build_dir}}/vmware/certs/vcenter_ssl.crt"
+          
+        - name: Download main.tf and terraform.tfstate file
+          get_url:
+            url: "https://{{vcenter_hostname}}/folder/{{tf_files_folder}}/{{item}}?dcPath={{dc}}&dsName={{datastore}}"
+            dest: "{{tf_build_dir}}/{{item}}"
+            username: "{{vcenter_username}}"
+            password: "{{vcenter_password}}"
+            force_basic_auth: yes
+            validate_certs: False 
+            # environment:
+            # REQUESTS_CA_BUNDLE: /var/vmware/certs/vcenter_ssl.crt
+          # shell: 
+          #   cmd: >
+          #     curl --cacert "http://20.115.26.80/pkg/ovf_images/combined.pem" -u "administrator@vsphere.local:Trianz@1234" -o "{{tf_build_dir}}/{{item}}" "https://{{vcenter_hostname}}/folder/{{tf_files_folder}}/{{item}}?dcPath={{dc}}&dsName={{datastore}}"
+          #   #delegate_to: localhost
+          with_items:
+               - "main.tf"
+               - "terraform.tfstate"
+          ignore_errors: True
+
+
+      #  - name: Set server name   
+      #    shell: |
+      #            count={{vm_count|int}}
+      #            #name="{{item.vm_name}}"
+      #            #item.vm_name= " "
+      #            for num  in range(count):
+      #            #     item.vm_name=name + "_" + str(num)
+      #                  print(str(num))
+      #    args:
+      #         executable: "{{ansible_python_interpreter}}"
+      #    register: server_names
+      #    tags: 
+      #       - print
+
+      #  - name: print server names
+      #    debug:
+      #        msg: "{{server_names.stdout_lines}}"
+      #    tags:
+      #       - debug
+
+        - name: Generic settings      
+          blockinfile:
+                     block: "{{lookup('template','generic_settings.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "#Generic settings {mark}"
+                     create: True
+
+
+
+        - name: VMs template settings      
+          blockinfile:
+                     block: "{{lookup('template','vm_template.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "#VM Settings {mark}"
+                     create: True
+        - name: Additional network settings     
+          blockinfile:
+                     block: "{{lookup('template','add_network.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# Additional network settings {mark}"
+                     create: True
+          #when: item.create_vswitch |bool or item.use_network |bool
+          when: create_vswitch |bool or use_network |bool
+
+
+        - name: centos 7 VMs
+          blockinfile:
+                     block: "{{lookup('template','main_centos7.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.centos7_server|bool and item.edit_vm |bool != True
+          loop: "{{centos7}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks centos7    
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{centos7}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks ubuntu20
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{centos7}}"
+          ignore_errors: True
+
+        - name: Rhel 8 VMs
+          blockinfile:
+                     block: "{{lookup('template','main_rhel8.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.rhel8_server|bool and item.edit_vm |bool != True
+          loop: "{{rhel8}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks rhel8      
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{rhel8}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks rhel8
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{rhel8}}" 
+          ignore_errors: True
+
+        - name: SUSE15 VMs
+          blockinfile:
+                     block: "{{lookup('template','main_suse15.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.suse15_server|bool and item.edit_vm |bool != True
+          loop: "{{suse15}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks suse15     
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{suse15}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks suse15
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{suse15}}"
+          ignore_errors: True
+        - name: Ubuntu20 VMs
+          blockinfile:
+                     block: "{{lookup('template','main_ubuntu20.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.ubuntu20_server|bool 
+          loop: "{{ubuntu20}}"
+          ignore_errors: True
+       
+        - name: PREP create vars for editting vm disks ubuntu20      
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{ubuntu20}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks ubuntu20
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{ubuntu20}}"
+          ignore_errors: True
+
+        - name: Windows server 2019 VMs 
+          blockinfile:
+                     block: "{{lookup('template','main_win2019.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.win_server_2019|bool and item.edit_vm |bool != True
+          loop: "{{win2019}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks winserver2019    
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{win2019}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks winserver2019
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{win2019}}"
+          ignore_errors: True
+
+        - name: Windows server 2016 VMs 
+          blockinfile:
+                     block: "{{lookup('template','main_win2016.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     marker: "# {{item.vm_name}} {mark}"
+                     create: True
+          when: item.win_server_2016|bool and item.edit_vm |bool != True
+          loop: "{{win2016}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks winserver2016    
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{win2016}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks winserver2016
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{win2016}}"
+          ignore_errors: True
+
+      
+
+        - name: Windows server 2012 VMs 
+          blockinfile:
+                     block: "{{lookup('template','main_win2012.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     create: True
+                     marker: "# {{item.vm_name}} {mark}"
+          when: item.win_server_2012|bool and item.edit_vm |bool != True
+          loop: "{{win2012}}"
+          ignore_errors: True
+        - name: PREP create vars for editting vm disks winserver2012    
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{win2012}}"
+          ignore_errors: True
+
+        - name: PREP apply vars for editting vm disks winserver2012
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{win2012}}"
+          ignore_errors: True
+
+        - name: Terraform init 
+          shell: terraform init
+          args:
+            chdir: "{{tf_build_dir}}"
+
+
+
+        - name: Terraform plan 
+          shell: terraform plan 
+          args:
+            chdir: "{{tf_build_dir}}"
+
+        - name: Terraform apply
+          shell: terraform apply --auto-approve
+          args:
+            chdir: "{{tf_build_dir}}"
+
+
+        - name: Copy main.tf and terraform.tfstate files to datastore on vcenter_hostname server
+          community.vmware.vsphere_copy:
+            hostname: '{{vcenter_hostname}}'
+            username: '{{vcenter_username}}'
+            password: '{{vcenter_password}}'
+            src: "{{tf_build_dir}}/{{item}}"
+            datacenter: "{{dc}}"
+            datastore: "{{datastore}}"
+            path: "{{tf_files_folder}}/{{item}}"
+            validate_certs: True
+          environment:
+            REQUESTS_CA_BUNDLE: "{{tf_build_dir}}/vmware/certs/vcenter_ssl.crt"
+          delegate_to: localhost
+          with_items:
+               - "main.tf"
+               - "terraform.tfstate"
+ 

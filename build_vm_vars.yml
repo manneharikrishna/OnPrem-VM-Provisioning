@@ -1,0 +1,25 @@
+winserver2012:
+- win_server_2012: 1
+  vm_name: WINSERVER_2012_TEST_1
+  win2012_cpu_cores: 2
+  win2012_mem_alloc: 2000
+  win2012_disk_size: 40
+  add_disk: False
+  num_add_disks: 2
+  sizegb1: 1
+  sizegb2: 1
+  edit_vm: False
+  create_vswitch: False
+  use_network: False
+- win_server_2012: 1
+  vm_name: WINSERVER_2012_TEST_2
+  win2012_cpu_cores: 2
+  win2012_mem_alloc: 2000
+  win2012_disk_size: 40
+  add_disk: True
+  num_add_disks: 2
+  sizegb1: 1
+  sizegb2: 1
+  edit_vm: False
+  create_vswitch: False
+  use_network: False

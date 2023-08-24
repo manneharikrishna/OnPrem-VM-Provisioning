@@ -1,0 +1,55 @@
+provider "vsphere" {
+  user           = var.vmware_user
+  password       = var.vmware_pass
+  vsphere_server = var.vcenter
+
+  # If you have a self-signed cert
+  allow_unverified_ssl = true
+}
+
+
+
+
+
+
+
+
+
+
+data "vsphere_datacenter" "dc" {
+        name = var.dc
+}
+
+
+data "vsphere_resource_pool" "pool" {
+        name = var.resource_pool
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_host" "h1" {
+  name          = "esxi02.concierto.local"
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+resource "vsphere_host_virtual_switch" "hvs1" {
+  name             = "testNetwork"
+  host_system_id   = data.vsphere_host.h1.id
+  network_adapters = ["vmnic1", "vmnic2"]
+  active_nics      = ["vmnic1"]
+  standby_nics     = ["vmnic2"]
+}
+
+resource "vsphere_host_port_group" "p1" {
+  name                = "test2"
+  virtual_switch_name = vsphere_host_virtual_switch.testNetwork.name
+  host_system_id      = data.vsphere_host.h1.id
+}
+
+
+
+
+
+
+

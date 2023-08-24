@@ -1,0 +1,112 @@
+---
+# defaults file for vmware_vm
+win_server_2019: False
+win_server_2016: False
+win_server_2012: False
+centos7_server: False
+ubuntu20_server: False
+suse15_server: False
+rhel8_server: False
+
+win_server_2019_name: Win_Server2019
+win_server_2016_name: Win_Server2016
+win_server_2012_name: Win_Server2012
+centos7_server_name:  centos7_vm
+ubuntu2004_server_name: ubuntu2004vm
+suse15_server_name: suse15_vm
+rhel8_server_name: rhel8_vm
+
+
+win_server_2019_count: 0
+win_server_2016_count: 0
+win_server_2012_count: 0
+centos7_server_count: 0
+ubuntu2004_server_count: 0
+suse15_server_count: 0
+rhel8_server_count: 0
+
+
+vm_count: 1
+
+dc: "Concierto-DC"
+
+#datastore: "datastore1"
+datastore: "datastore1"
+
+vm_template: "Controller-1"
+
+resource_pool: "Resources"
+
+
+### Network section
+#
+network: "VM Network"
+portgroup: test2
+
+portgroup_name: "{{portgroup}}"
+create_vswitch: False
+use_network: False
+
+
+vmware_pass: "Trianz@1234"
+vmware_user: "administrator@vsphere.local"
+
+
+#vcenter: "10.20.16.5"
+vcenter: '{{ lookup("env", "VMWARE_HOST") }}'
+win_server_2019_template: "server2019Tmpl"
+win_server_2016_template: "vmserver2016"
+win_server_2012_template: "vmserver2012"
+centos7_server_template: "CentosTemplate"
+ubuntu2004_server_template: "ubuntu2004Tmpl"
+suse15_server_template: "suse15Tmpl"
+rhel8_server_template: "Rhel8Template"
+
+domain: "vsphere.local"
+admin_pass: "Trianz@1234"
+domain_admin: "administrator@vsphere.local"
+domain_admin_passwd: "Trianz@1234"
+ansible_python_interpreter: /usr/bin/python3
+vcenter_hostname: '{{ lookup("env", "VMWARE_HOST") }}'
+vcenter_username:  '{{ lookup("env", "VMWARE_USER") }}'
+vcenter_password: '{{ lookup("env", "VMWARE_PASSWORD") }}'
+
+sizegb1: " "
+sizegb2: " "
+
+#template_version
+version: "v1"
+
+
+###### instance types ############
+win2019_instance_type: "small"
+win2016_instance_type: "small"
+win2012_instance_type: "small"
+suse15_instance_type: "small"
+rhel8_instance_type: "small"
+ubuntu20_instance_type: "small"
+centos7_instance_type: "small"
+
+###################
+centos7_server_count: " "
+
+##################
+#virtual_switch settings
+create_vswitch: False
+use_network: False
+portgroup_name: " "
+network2: " "
+
+#######################
+#add_disk: False
+#num_add_disk: " "
+
+#########################
+#If you want to edit the VM chnage this to yes
+edit_vm: False
+delete_vm: False
+vms_to_delete: " "
+#####
+#terraform Buid directory
+tf_build_dir: "terraform_VM_Workspace"
+tf_files_folder: "Terraformfiles-Dev"

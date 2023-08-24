@@ -1,0 +1,103 @@
+data "vsphere_datacenter" "dc" {
+        name = var.dc
+}
+
+
+data "vsphere_resource_pool" "pool" {
+        name = var.resource_pool
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+
+data "vsphere_datastore" "datastore" {
+        name = var.datastore
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_network" "network" {
+        name = var.network
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+data "vsphere_virtual_machine" "template" {
+        name = var.vm_template
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+provider "vsphere" {
+             user = var.vmware_user 
+             password = var.vmware_pass 
+             vsphere_server = var.vcenter
+             allow_unverified_ssl = true
+}
+
+
+
+
+
+resource "vsphere_virtual_machine" "vm" {
+                                  
+
+                       count = var.vm_count
+                       #name = "var.vm_name_${count.index}"
+                       name = "${var.vm_name}_${count.index}"
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+                       {% if win_server_2012|bool %} 
+                       firmware = "bios"
+                       {% endif %}
+
+
+                       {% if win_server_2016|bool or win_server_2019|bool %} 
+                       firmware = "efi"
+                       {% endif %}
+
+                       {% if rhel8_server|bool %} 
+                       firmware = "efi"
+                       {% endif %}
+
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       num_cpus = 1
+                       memory = 1024
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "centos7_64Guest"
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+}
+
+                       
+                       guest_id = data.vsphere_virtual_machine.template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.template.disks[template_disks.key].label                               
+                             size = data.vsphere_virtual_machine.template.disks[template_disks.key].size                                            
+                             thin_provisioned = data.vsphere_virtual_machine.template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.template.disks[template_disks.key].unit_number     
+                          }
+ }
+
+
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.template.id                                            
+}
+          
+
+
+
+}

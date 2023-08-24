@@ -1,0 +1,132 @@
+---
+- name: VM Build Block
+  block:
+        - name: Create terraform workspace directory
+          file:
+            dest: "{{tf_build_dir}}"
+            state: directory
+        
+        - name: Download main.tf and terraform.tfstate file
+          get_url:
+            url: "https://{{vcenter_hostname}}/folder/{{tf_files_folder}}/{{item}}?dcPath={{dc}}&dsName={{datastore}}"
+            dest: "{{tf_build_dir}}/{{item}}"
+            username: "{{vcenter_username}}"
+            password: "{{vcenter_password}}"
+            force_basic_auth: yes
+            validate_certs: False
+          delegate_to: localhost
+          with_items:
+               - "main.tf"
+               - "terraform.tfstate"
+          ignore_errors: True
+
+
+      #  - name: Set server name   
+      #    shell: |
+      #            count={{vm_count|int}}
+      #            #name="{{item.vm_name}}"
+      #            #item.vm_name= " "
+      #            for num  in range(count):
+      #            #     item.vm_name=name + "_" + str(num)
+      #                  print(str(num))
+      #    args:
+      #         executable: "{{ansible_python_interpreter}}"
+      #    register: server_names
+      #    tags: 
+      #       - print
+
+      #  - name: print server names
+      #    debug:
+      #        msg: "{{server_names.stdout_lines}}"
+      #    tags:
+      #       - debug
+        #- name: First remove vars for first disk
+        #  blockinfile:
+        #             path: "{{tf_build_dir}}/main.tf"
+        #             marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+        #             state: absent
+        #  when: edit_vm|bool and item.add_disk|bool and item.num_add_disks=="2"|int
+        #  loop: "{{edit_data}}"
+        #  ignore_errors: True
+
+
+        - name: PREP create vars for editting vm disks      
+          blockinfile:
+                     block: "{{lookup('template','create_vars_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "# {{item.vm_name}} BEGIN"
+                     marker: "#create_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+          when: item.add_disk|bool
+          loop: "{{edit_data}}"
+
+        - name: PREP apply vars for editting vm disks      
+          blockinfile:
+                     block: "{{lookup('template','apply_edit_vm_disks.j2')}}"
+                     path: "{{tf_build_dir}}/main.tf"
+                     insertafter: "#edit_disk_{{item.vm_name}}"
+                     marker: "#apply_disk_vars_for_{{item.vm_name}}  {mark}"
+                     create: True
+
+          when: item.add_disk|bool
+          loop: "{{edit_data}}"
+
+
+
+
+        - name: EDIT CPU 
+          replace:
+                     path: "{{tf_build_dir}}/main.tf"
+                     replace: "                       num_cpus = {{item.cpu_cores}}"
+                     regexp: '(.*)num_cpus(.*)'
+                     after: "# {{item.vm_name}} BEGIN"
+                     before: "# {{item.vm_name}} END"
+          when: item.edit_cpu|bool
+          loop: "{{edit_data}}"
+        - name: EDIT MEMORY
+          replace:
+                     path: "{{tf_build_dir}}/main.tf"
+                     replace: "                       memory = {{item.memory}}"
+                     regexp: '(.*)memory(.*)'
+                     after: "# {{item.vm_name}} BEGIN"
+                     before: "# {{item.vm_name}} END"
+          when: item.edit_memory|bool
+          loop: "{{edit_data}}"
+
+        - name: Terraform init 
+          shell: terraform init
+          args:
+            chdir: "{{tf_build_dir}}"
+
+
+
+        - name: Terraform plan 
+          shell: terraform plan 
+          args:
+            chdir: "{{tf_build_dir}}"
+
+        - name: Terraform apply
+          shell: terraform apply --auto-approve
+          args:
+            chdir: "{{tf_build_dir}}"
+
+
+        - name: Copy main.tf and terraform.tfstate files to datastore on vcenter_hostname server
+          community.vmware.vsphere_copy:
+            hostname: '{{vcenter_hostname}}'
+            username: '{{vcenter_username}}'
+            password: '{{vcenter_password}}'
+            src: "{{tf_build_dir}}/{{item}}"
+            datacenter: "{{dc}}"
+            datastore: "{{datastore}}"
+            path: "{{tf_files_folder}}/{{item}}"
+            validate_certs: False
+          delegate_to: localhost
+          with_items:
+               - "main.tf"
+               - "terraform.tfstate"
+    
+    
+
+    
+

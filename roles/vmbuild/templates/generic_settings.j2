@@ -1,0 +1,33 @@
+data "vsphere_datacenter" "dc" {
+        name = "{{dc}}"
+}
+
+
+data "vsphere_resource_pool" "pool" {
+        name = "{{resource_pool}}"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+
+data "vsphere_datastore" "datastore" {
+        name = "{{datastore}}"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_network" "network" {
+        name = "{{network}}"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+provider "vsphere" {
+             user = "{{vmware_user}}"
+             password = "{{vmware_pass}}"
+             vsphere_server = "{{vcenter}}"
+             allow_unverified_ssl = true
+}
+

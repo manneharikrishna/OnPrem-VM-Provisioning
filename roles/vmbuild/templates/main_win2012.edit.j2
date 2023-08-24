@@ -1,0 +1,127 @@
+
+{% if (add_disk|bool and num_add_disk=="1" and win_server_2012|bool) %}
+locals {
+win2012_adddisk_{{vm_name}} = [
+    { "id":2,"sizeGB":{{sizegb1}} }
+  ]
+}
+{% elif (add_disk|bool and num_add_disk=="2" and win_server_2012|bool) %}
+locals {
+win2012_adddisk_{{vm_name}} = [
+    { "id":2,"sizeGB":{{sizegb1}}  },
+    { "id":3,"sizeGB":{{sizegb2}}  }
+  ]
+}
+{% endif %}
+
+
+resource "vsphere_virtual_machine" "{{vm_name}}" {                                  
+                       
+                       name = "{{vm_name}}"
+
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+
+
+                       {% if win_server_2012|bool %} 
+                       firmware = "bios"
+                       {% endif %}
+  
+
+                       wait_for_guest_net_timeout = 0
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (win2012_cpu_cores is defined and win2012_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{win2012_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (win2012_mem_alloc is defined and win2012_mem_alloc != " ") %} 
+                                
+                       memory = {{win2012_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "centos7_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+                                   adapter_type = data.vsphere_virtual_machine.win2012_template.network_interface_types[0]         
+}
+
+
+                       {% if create_vswitch|bool or use_network|bool %} 
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.{{network2}}.id                                            
+}
+
+                       {% endif %}
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.win2012_template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.win2012_template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.win2012_template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.win2012_template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.win2012_template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (win2012_disk_size is defined and win2012_disk_size != " ") %} 
+                              size = {{win2012_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.win2012_template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.win2012_template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.win2012_template.disks[template_disks.key].unit_number     
+                          }
+ }
+
+                       {% if add_disk|bool %} 
+                       dynamic "disk" {
+                             for_each = [ for disk in local.win2012_adddisk_{{vm_name}}: disk ]
+                          
+
+                             content {
+                              label       = "disk${disk.value.id}"
+                              unit_number = disk.value.id
+                              size        = disk.value.sizeGB
+                               }
+
+}
+                       {% endif %} 
+
+
+
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.win2012_template.id                                            
+  
+
+}
+          
+                                                         
+
+
+}

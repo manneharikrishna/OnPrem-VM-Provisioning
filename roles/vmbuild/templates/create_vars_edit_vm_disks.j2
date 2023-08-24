@@ -1,0 +1,16 @@
+{% if item.add_disk|bool and item.num_add_disk=="1" |int%}
+locals {
+{{item.vm_name}}_adddisk_{{item.vm_name}} = [
+    { "id":2,"sizeGB":{{item.sizegb1}} }
+  ]
+}
+
+{% elif item.add_disk|bool and item.num_add_disk=="2" |int %}
+locals {
+{{item.vm_name}}_adddisk_{{item.vm_name}} = [
+    { "id":2,"sizeGB":{{item.sizegb1}}  },
+    { "id":3,"sizeGB":{{item.sizegb2}}  }
+  ]
+}
+{% endif %}
+

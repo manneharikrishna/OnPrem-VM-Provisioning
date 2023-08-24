@@ -1,0 +1,116 @@
+resource "vsphere_virtual_machine" "{{item.vm_name}}" {                                  
+                       
+                       name = "{{item.vm_name}}"
+                                  
+
+                       #name = "var.vm_name_${count.index}"
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+
+
+                       {% if item.win_server_2016|bool %} 
+                       firmware = "efi"
+                       {% endif %}
+  
+
+                       wait_for_guest_net_routable = false
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (item.win2016_cpu_cores is defined and item.win2016_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{item.win2016_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (item.win2016_mem_alloc is defined and item.win2016_mem_alloc != " ") %} 
+                                
+                       memory = {{item.win2016_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "centos7_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+                                   adapter_type = data.vsphere_virtual_machine.win2016_template.network_interface_types[0]         
+}
+
+
+                       {% if item.create_vswitch|bool or item.use_network|bool %} 
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.{{network2}}.id                                            
+}
+
+                       {% endif %}
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.win2016_template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.win2016_template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.win2016_template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.win2016_template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.win2016_template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (item.win2016_disk_size is defined and item.win2016_disk_size != " ") %} 
+                              size = {{item.win2016_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.win2016_template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.win2016_template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.win2016_template.disks[template_disks.key].unit_number     
+                          }
+ }
+#edit_disk_{{item.vm_name}}
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.win2016_template.id                                            
+                            customize { 
+                                  timeout = 30
+                                  windows_options {
+                                     computer_name = "{{item.vm_name}}"
+
+                                      # for local testing 
+                                      #computer_name = "vm2016"
+
+                                      admin_password = "{{admin_pass}}"
+#                                    # join_domain = "{{domain}}"
+                                     # domain_admin_user = "{{domain_admin}}"
+                                     # domain_admin_password= "{{domain_admin_passwd}}"
+
+                                                  
+                                                 }
+                                 # Empty network interfaces for DHCP -enter some values here if using static IPs 
+                                  network_interface {
+                                      ipv4_address = "{{item.static_ip}}"
+                                      ipv4_netmask = 23
+                                      dns_server_list = ["10.10.10.95"]
+                                  }
+                                   ipv4_gateway = "10.20.16.1"
+                                   #dns_server_list = "10.10.10.95"
+                                               }
+      
+      }
+
+}

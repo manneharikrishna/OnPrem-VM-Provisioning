@@ -1,0 +1,54 @@
+data "vsphere_virtual_machine" "centos7_template" {
+
+        #name = "Centos7_{{version}}_{{centos7_instance_type|capitalize}}"
+        #name = "Centos7_v2_Small"
+        name = "cr7"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_virtual_machine" "rhel8_template" {
+
+        #name = "RHEL8_{{version}}_{{rhel8_instance_type|capitalize}}"
+        name = "RHEL-v2_Small"
+        #name = "RHEL-8-DND"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_virtual_machine" "suse15_template" {
+
+        #name = "SUSE15_{{version}}_{{suse15_instance_type|capitalize}}"
+        name = "SUSE15_v2_Small"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_virtual_machine" "ubuntu20_template" {
+
+        #name = "Ubuntu20_{{version}}_{{ubuntu20_instance_type|capitalize}}"
+        name = "Ubuntu20_v2_Small"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+data "vsphere_virtual_machine" "win2019_template" {
+
+        #name = "Win2019_{{version}}_{{win2019_instance_type|capitalize}}"
+        name = "Win-2019-Hercules"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+data "vsphere_virtual_machine" "win2016_template" {
+
+        #name = "Win2016_{{version}}_{{win2016_instance_type|capitalize}}"
+        name = "Win-2016-Hercules"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+data "vsphere_virtual_machine" "win2012_template" {
+
+        #name = "Win2012_{{version}}_{{win2012_instance_type|capitalize}}"
+        name = "Win-2012-Hercules"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+

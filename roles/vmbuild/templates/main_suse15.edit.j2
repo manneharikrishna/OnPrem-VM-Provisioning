@@ -1,0 +1,119 @@
+
+
+{% if (add_disk|bool and num_add_disk=="1" and suse15_server|bool) %}
+locals {
+suse15_adddisk_{{vm_name}} = [
+    { "id":2,"sizeGB":{{sizegb1}} }
+  ]
+}
+{% elif (add_disk|bool and num_add_disk=="2" and suse15_server|bool) %}
+locals {
+suse15_adddisk_{{vm_name}} = [
+    { "id":2,"sizeGB":{{sizegb1}}  },
+    { "id":3,"sizeGB":{{sizegb2}}  }
+  ]
+}
+{% endif %}
+
+resource "vsphere_virtual_machine" "{{vm_name}}" {                                  
+                       
+                       name = "{{vm_name}}"
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (suse15_cpu_cores is defined and suse15_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{suse15_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (suse15_mem_alloc is defined and suse15_mem_alloc != " ") %} 
+                                
+                       memory = {{suse15_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "suse15_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+}
+
+
+                       {% if create_vswitch|bool or use_network|bool %} 
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.{{network2}}.id                                            
+}
+
+                       {% endif %}
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.suse15_template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.suse15_template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.suse15_template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.suse15_template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.suse15_template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (suse15_disk_size is defined and suse15_disk_size != " ") %} 
+                              size = {{suse15_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.suse15_template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.suse15_template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.suse15_template.disks[template_disks.key].unit_number     
+                          }
+ }
+
+                       {% if add_disk|bool %} 
+                       dynamic "disk" {
+                             for_each = [ for disk in local.suse15_adddisk_{{vm_name}}: disk ]
+                          
+
+                             content {
+                              label       = "disk${disk.value.id}"
+                              unit_number = disk.value.id
+                              size        = disk.value.sizeGB
+                               }
+
+}
+                       {% endif %} 
+
+
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.suse15_template.id                                            
+  
+
+                             }
+
+      
+      
+                                                         
+
+
+}

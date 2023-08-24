@@ -1,0 +1,155 @@
+data "vsphere_datacenter" "dc" {
+        name = var.dc
+}
+
+
+data "vsphere_resource_pool" "pool" {
+        name = var.resource_pool
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+
+data "vsphere_datastore" "datastore" {
+        name = var.datastore
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_network" "network" {
+        name = var.network
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+data "vsphere_virtual_machine" "template" {
+        name = var.vm_template
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+provider "vsphere" {
+             user = var.vmware_user 
+             password = var.vmware_pass 
+             vsphere_server = var.vcenter
+             allow_unverified_ssl = true
+}
+
+
+
+
+
+resource "vsphere_virtual_machine" "vm" {
+                                  
+
+                       count = var.vm_count
+                       #name = "var.vm_name_${count.index}"
+                       name = "${var.vm_name}-${count.index}"
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+
+
+                       {% if win_server_2016|bool or win_server_2019|bool %} 
+                       firmware = "efi"
+                       {% endif %}
+  
+
+                       wait_for_guest_net_timeout = 0
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (win2019_cpu_cores is defined and win2019_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{win2019_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (win2019_mem_alloc is defined and win2019_mem_alloc != " ") %} 
+                                
+                       memory = {{win2019_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "centos7_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+                                   adapter_type = data.vsphere_virtual_machine.template.network_interface_types[0]         
+}
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (win2019_disk_size is defined and win2019_disk_size != " ") %} 
+                              size = {{win2019_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.template.disks[template_disks.key].unit_number     
+                          }
+ }
+
+
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.template.id                                            
+  
+
+                             customize { 
+                                  timeout = 30
+                                  windows_options {
+                                            computer_name = "${var.vm_name}-${count.index}"
+
+                                            # for local testing 
+                                            #computer_name = "vm2016"
+
+                                            admin_password = "{{admin_pass}}"
+#                                            join_domain = "{{domain}}"
+                                            domain_admin_user = "{{domain_admin}}"
+                                            domain_admin_password= "{{domain_admin_passwd}}"
+
+                                                  
+                                                 }
+                                 # Empty network interfaces for DHCP -enter some values here if using static IPs 
+                                  network_interface {}
+      
+      
+                                                   }
+}
+          
+                                                         
+
+provisioner "local-exec" {
+
+                       command = "echo ${data.vsphere_network.network.id} >>/root/vsphere_network_data"                                            
+}
+
+}

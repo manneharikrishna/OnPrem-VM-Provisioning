@@ -1,0 +1,11 @@
+
+{% if create_vswitch|bool or use_network|bool %} 
+
+data "vsphere_network" "{{network2}}" {
+        name = "{{portgroup_name}}"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+{% endif %}
+
+

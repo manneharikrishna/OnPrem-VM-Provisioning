@@ -1,0 +1,97 @@
+resource "vsphere_virtual_machine" "{{item.vm_name}}" {                                  
+                       
+                       name = "{{item.vm_name}}"
+                                  
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+                       {% if item.rhel8_server|bool %} 
+                       firmware = "efi"
+                       {% endif %}
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (item.rhel8_cpu_cores is defined and item.rhel8_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{item.rhel8_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (item.rhel8_mem_alloc is defined and item.rhel8_mem_alloc != " ") %} 
+                                
+                       memory = {{item.rhel8_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "suse15_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+}
+
+
+                       {% if item.create_vswitch|bool or item.use_network|bool %} 
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.{{item.network2}}.id                                            
+}
+
+                       {% endif %}
+
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.rhel8_template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.rhel8_template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.rhel8_template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.rhel8_template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.rhel8_template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (item.rhel8_disk_size is defined and item.rhel8_disk_size != " ") %} 
+                              size = {{item.rhel8_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.rhel8_template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.rhel8_template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.rhel8_template.disks[template_disks.key].unit_number     
+                          }
+ }
+#edit_disk_{{item.vm_name}}
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.rhel8_template.id                                            
+                              customize{
+                                    linux_options {
+                                          host_name = "{{item.vm_name}}"
+                                          domain    = "concierto.local"
+                                                      }
+                                    network_interface {
+                                          ipv4_address = "{{item.static_ip}}"
+                                          ipv4_netmask = 23
+                                           }
+                                    ipv4_gateway    = "10.20.16.1"
+                                    dns_server_list = ["10.10.10.95"]
+                              }
+
+                             }
+
+}

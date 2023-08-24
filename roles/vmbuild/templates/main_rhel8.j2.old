@@ -1,0 +1,159 @@
+data "vsphere_datacenter" "dc" {
+        name = var.dc
+}
+
+
+data "vsphere_resource_pool" "pool" {
+        name = var.resource_pool
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+
+data "vsphere_datastore" "datastore" {
+        name = var.datastore
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+data "vsphere_network" "network" {
+        name = var.network
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+data "vsphere_virtual_machine" "template" {
+        name = var.vm_template
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+provider "vsphere" {
+             user = var.vmware_user 
+             password = var.vmware_pass 
+             vsphere_server = var.vcenter
+             allow_unverified_ssl = true
+}
+
+
+
+
+
+resource "vsphere_host_virtual_switch" "hvs1" {
+  name             = "testNetwork"
+  host_system_id   = data.vsphere_host.h1.id
+  network_adapters = ["vmnic1", "vmnic2"]
+  active_nics      = ["vmnic1"]
+  standby_nics     = ["vmnic2"]
+}
+
+resource "vsphere_host_port_group" "p1" {
+  name                = "test2"
+  virtual_switch_name = vsphere_host_virtual_switch.testNetwork.name
+  host_system_id      = data.vsphere_host.h1.id
+}
+
+
+
+data "vsphere_network" "network2" {
+        name = "test2"
+        datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+
+
+
+
+
+
+
+
+resource "vsphere_virtual_machine" "vm" {
+                                  
+
+                       count = var.vm_count
+                       #name = "var.vm_name_${count.index}"
+                       name = "${var.vm_name}-${count.index}"
+                       datastore_id = data.vsphere_datastore.datastore.id
+
+
+
+                       resource_pool_id= data.vsphere_resource_pool.pool.id
+                       
+                       {% if (rhel8_cpu_cores is defined and rhel8_cpu_cores != " ") %} 
+                                
+                       num_cpus = {{rhel8_cpu_cores}}
+                       {% else %}
+                          
+                       num_cpus = 1
+                              
+                       {% endif %}
+
+                       {% if (rhel8_mem_alloc is defined and rhel8_mem_alloc != " ") %} 
+                                
+                       memory = {{rhel8_mem_alloc}}
+                       {% else %}
+                          
+                       memory = 1024
+                       {% endif %}
+                              
+                       #guest_id = "other3xLinux64Guest"
+                       #guest_id = "rhel8_64Guest"
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network.id                                            
+}
+
+                       network_interface { 
+                                   network_id = data.vsphere_network.network2.id                                            
+}
+
+
+                       
+
+                       guest_id = data.vsphere_virtual_machine.template.guest_id                         
+                       scsi_type = data.vsphere_virtual_machine.template.scsi_type                                            
+
+
+
+
+                       dynamic "disk" { 
+                             for_each = data.vsphere_virtual_machine.template.disks
+                             iterator = template_disks
+
+                      content {
+                             eagerly_scrub = data.vsphere_virtual_machine.template.disks[template_disks.key].eagerly_scrub                                            
+                             label = data.vsphere_virtual_machine.template.disks[template_disks.key].label                               
+                          
+                              
+
+                              {% if (rhel8_disk_size is defined and rhel8_disk_size != " ") %} 
+                              size = {{rhel8_disk_size}}
+                                
+                              {% else %}
+                          
+                              size = data.vsphere_virtual_machine.template.disks[template_disks.key].size                                            
+                              
+                              {% endif %}
+
+                            
+                             thin_provisioned = data.vsphere_virtual_machine.template.disks[template_disks.key].thin_provisioned   
+                             unit_number  = data.vsphere_virtual_machine.template.disks[template_disks.key].unit_number     
+                          }
+ }
+
+
+                       clone { 
+                                   template_uuid = data.vsphere_virtual_machine.template.id                                            
+  
+
+                             }
+
+      
+      
+                                                         
+
+
+}

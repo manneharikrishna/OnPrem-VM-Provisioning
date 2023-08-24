@@ -1,0 +1,11 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  # vars_files:
+  #   - build_vm_vars.yml
+  roles:
+    - role: vmbuild
+
+
